@@ -4,12 +4,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../session/SessionContext';
 import { MessageDto, MessageNewEvent } from '../types/api';
-import { appendMessageIfNew, belongsToContact } from './chatMessages';
+import { appendMessageIfNew, belongsToContact, stripOptimisticMessages } from './chatMessages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 export default function ChatScreen({ route }: Props) {
-  const { socket, api } = useSession();
+  const { socket, api, state, dismissResolvedContact } = useSession();
   const { toTableId, toTableNumber } = route.params;
   const [contactId, setContactId] = useState<number | undefined>(route.params.contactId);
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -29,7 +29,7 @@ export default function ChatScreen({ route }: Props) {
     if (!socket) return;
     function handleMessageNew(event: MessageNewEvent) {
       if (contactId === undefined || !belongsToContact(contactId, event)) return;
-      setMessages((prev) => appendMessageIfNew(prev, event.message));
+      setMessages((prev) => appendMessageIfNew(stripOptimisticMessages(prev), event.message));
     }
     socket.on('message:new', handleMessageNew);
     return () => {
@@ -37,6 +37,15 @@ export default function ChatScreen({ route }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, contactId]);
+
+  useEffect(() => {
+    if (state.status !== 'authenticated' || contactId === undefined) return;
+    const resolution = state.resolvedContacts.find((r) => r.contactId === contactId);
+    if (resolution) {
+      setPendingApproval(false);
+      dismissResolvedContact(resolution.contactId);
+    }
+  }, [state, contactId, dismissResolvedContact]);
 
   async function handleSend() {
     const content = draft.trim();

@@ -10,3 +10,7 @@ export function appendMessageIfNew(messages: MessageDto[], incoming: MessageDto)
 export function belongsToContact(contactId: number, event: MessageNewEvent): boolean {
   return event.contactId === contactId;
 }
+
+export function stripOptimisticMessages(messages: MessageDto[]): MessageDto[] {
+  return messages.filter((m) => m.id >= 0);
+}

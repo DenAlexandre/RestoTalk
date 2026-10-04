@@ -1,4 +1,4 @@
-import { appendMessageIfNew, belongsToContact } from './chatMessages';
+import { appendMessageIfNew, belongsToContact, stripOptimisticMessages } from './chatMessages';
 import { MessageDto } from '../types/api';
 
 const baseMessage: MessageDto = {
@@ -29,5 +29,18 @@ describe('belongsToContact', () => {
 
   it('returns false when the event contactId does not match', () => {
     expect(belongsToContact(7, { contactId: 9, message: baseMessage })).toBe(false);
+  });
+});
+
+describe('stripOptimisticMessages', () => {
+  it('removes messages with a negative id', () => {
+    const optimistic: MessageDto = { ...baseMessage, id: -12345 };
+    const result = stripOptimisticMessages([optimistic, baseMessage]);
+    expect(result).toEqual([baseMessage]);
+  });
+
+  it('is a no-op when there are no optimistic messages', () => {
+    const result = stripOptimisticMessages([baseMessage]);
+    expect(result).toEqual([baseMessage]);
   });
 });
