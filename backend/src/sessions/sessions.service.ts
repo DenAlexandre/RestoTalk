@@ -59,4 +59,14 @@ export class SessionsService {
       data: { lastSeenAt: new Date() },
     });
   }
+
+  async leaveSession(sessionId: number): Promise<void> {
+    const session = await this.prisma.clientSession.update({
+      where: { id: sessionId },
+      data: { status: 'left', leftAt: new Date() },
+    });
+
+    await this.tablesService.refreshStatus(session.tableId);
+    this.events.emit('table.presence.changed', { tableId: session.tableId });
+  }
 }

@@ -27,4 +27,11 @@ export class SessionsController {
       status: updated.status,
     };
   }
+
+  @UseGuards(SessionAuthGuard)
+  @Post(':id/leave')
+  async leave(@Req() req: any) {
+    await this.sessionsService.leaveSession(req.session.id);
+    return { status: 'left' };
+  }
 }

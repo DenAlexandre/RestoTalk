@@ -32,4 +32,15 @@ export class TablesService {
       await this.prisma.table.createMany({ data: missing });
     }
   }
+
+  async refreshStatus(tableId: number): Promise<void> {
+    const activeCount = await this.prisma.clientSession.count({
+      where: { tableId, status: 'active' },
+    });
+
+    await this.prisma.table.update({
+      where: { id: tableId },
+      data: { status: activeCount > 0 ? 'occupied' : 'free' },
+    });
+  }
 }

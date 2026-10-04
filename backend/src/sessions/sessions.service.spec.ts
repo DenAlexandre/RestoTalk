@@ -66,3 +66,45 @@ describe('SessionsService.createSession', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });
+
+describe('SessionsService.leaveSession', () => {
+  let prisma: PrismaService;
+  let service: SessionsService;
+  let tableId: number;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        EventEmitterModule.forRoot(),
+        JwtModule.register({ secret: 'test-secret' }),
+      ],
+      providers: [PrismaService, SessionsService, TablesService],
+    }).compile();
+    prisma = moduleRef.get(PrismaService);
+    service = moduleRef.get(SessionsService);
+    const table = await prisma.table.create({
+      data: { number: 9202, qrTokenSecret: 'secret-9202', status: 'occupied' },
+    });
+    tableId = table.id;
+  });
+
+  afterAll(async () => {
+    await prisma.clientSession.deleteMany({ where: { tableId } });
+    await prisma.table.delete({ where: { id: tableId } });
+    await prisma.onModuleDestroy();
+  });
+
+  it('marks the session left and frees the table when it was the last active one', async () => {
+    const session = await prisma.clientSession.create({
+      data: { tableId, pseudo: 'Alice', status: 'active' },
+    });
+
+    await service.leaveSession(session.id);
+
+    const updatedSession = await prisma.clientSession.findUnique({ where: { id: session.id } });
+    const table = await prisma.table.findUnique({ where: { id: tableId } });
+    expect(updatedSession?.status).toBe('left');
+    expect(updatedSession?.leftAt).not.toBeNull();
+    expect(table?.status).toBe('free');
+  });
+});
