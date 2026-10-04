@@ -52,4 +52,11 @@ export class SessionsService {
 
     return { sessionToken, session };
   }
+
+  async touchLastSeen(sessionId: number) {
+    return this.prisma.clientSession.update({
+      where: { id: sessionId },
+      data: { lastSeenAt: new Date() },
+    });
+  }
 }

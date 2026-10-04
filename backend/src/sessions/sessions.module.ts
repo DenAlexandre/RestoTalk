@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
+import { SessionAuthGuard } from './session-auth.guard';
 import { TablesModule } from '../tables/tables.module';
 
 @Module({
@@ -13,7 +14,7 @@ import { TablesModule } from '../tables/tables.module';
     }),
   ],
   controllers: [SessionsController],
-  providers: [SessionsService],
+  providers: [SessionsService, SessionAuthGuard],
   exports: [SessionsService],
 })
 export class SessionsModule {}

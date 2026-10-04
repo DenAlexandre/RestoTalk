@@ -1,6 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto } from './dto/create-session.dto';
+import { SessionAuthGuard } from './session-auth.guard';
 
 @Controller('sessions')
 export class SessionsController {
@@ -12,6 +13,18 @@ export class SessionsController {
     return {
       sessionToken,
       session: { id: session.id, pseudo: session.pseudo, tableId: session.tableId },
+    };
+  }
+
+  @UseGuards(SessionAuthGuard)
+  @Get('me')
+  async me(@Req() req: any) {
+    const updated = await this.sessionsService.touchLastSeen(req.session.id);
+    return {
+      id: updated.id,
+      pseudo: updated.pseudo,
+      tableId: updated.tableId,
+      status: updated.status,
     };
   }
 }
