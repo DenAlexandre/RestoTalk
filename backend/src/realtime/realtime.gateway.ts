@@ -55,6 +55,7 @@ export class RealtimeGateway implements OnGatewayInit {
       }
 
       socket.data.tableId = session.tableId;
+      socket.join(`table:${session.tableId}`);
       next();
     } catch {
       next(new Error('Unauthorized'));
@@ -65,5 +66,27 @@ export class RealtimeGateway implements OnGatewayInit {
   async handlePresenceChanged() {
     const occupied = await this.tablesService.listOccupied();
     this.server.emit('tables:update', occupied);
+  }
+
+  @OnEvent('contact.request')
+  handleContactRequest(payload: {
+    contactId: number;
+    toTableId: number;
+    fromTableId: number;
+    fromTableNumber: number;
+  }) {
+    this.server.to(`table:${payload.toTableId}`).emit('contact:request', {
+      contactId: payload.contactId,
+      fromTableId: payload.fromTableId,
+      fromTableNumber: payload.fromTableNumber,
+    });
+  }
+
+  @OnEvent('message.new')
+  handleMessageNew(payload: { contactId: number; toTableId: number; message: unknown }) {
+    this.server.to(`table:${payload.toTableId}`).emit('message:new', {
+      contactId: payload.contactId,
+      message: payload.message,
+    });
   }
 }
