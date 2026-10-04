@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TablesModule } from './tables/tables.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     TablesModule,
     SessionsModule,
     RealtimeModule,
+    MessagingModule,
   ],
 })
 export class AppModule {}

@@ -16,6 +16,6 @@ import { TablesModule } from '../tables/tables.module';
   ],
   controllers: [SessionsController],
   providers: [SessionsService, SessionAuthGuard, SessionExpirationService],
-  exports: [SessionsService],
+  exports: [SessionsService, SessionAuthGuard, JwtModule],
 })
 export class SessionsModule {}
