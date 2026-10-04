@@ -3,11 +3,12 @@ import { TablesModule } from '../tables/tables.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { TablesDirectoryController } from './tables-directory.controller';
 import { MessagesController } from './messages.controller';
+import { ContactsController } from './contacts.controller';
 import { MessagingService } from './messaging.service';
 
 @Module({
   imports: [TablesModule, SessionsModule],
-  controllers: [TablesDirectoryController, MessagesController],
+  controllers: [TablesDirectoryController, MessagesController, ContactsController],
   providers: [MessagingService],
   exports: [MessagingService],
 })

@@ -82,6 +82,14 @@ export class RealtimeGateway implements OnGatewayInit {
     });
   }
 
+  @OnEvent('contact.resolved')
+  handleContactResolved(payload: { contactId: number; toTableId: number; status: string }) {
+    this.server.to(`table:${payload.toTableId}`).emit('contact:resolved', {
+      contactId: payload.contactId,
+      status: payload.status,
+    });
+  }
+
   @OnEvent('message.new')
   handleMessageNew(payload: { contactId: number; toTableId: number; message: unknown }) {
     this.server.to(`table:${payload.toTableId}`).emit('message:new', {

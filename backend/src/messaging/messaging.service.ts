@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ClientSession, Message } from '@prisma/client';
+import { ClientSession, Message, TableContact } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TablesService } from '../tables/tables.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -103,5 +103,54 @@ export class MessagingService {
     }
 
     return { status: 'pending_approval', contactId: contact.id };
+  }
+
+  async respondToContact(
+    session: ClientSession,
+    contactId: number,
+    accept: boolean,
+  ): Promise<TableContact> {
+    const contact = await this.prisma.tableContact.findUnique({ where: { id: contactId } });
+
+    if (!contact) {
+      throw new NotFoundException('Unknown contact');
+    }
+
+    if (contact.tableBId !== session.tableId) {
+      throw new ForbiddenException('Only the destination table can respond to this contact');
+    }
+
+    if (contact.status !== 'pending') {
+      throw new BadRequestException('Contact is already resolved');
+    }
+
+    const updated = await this.prisma.tableContact.update({
+      where: { id: contactId },
+      data: { status: accept ? 'accepted' : 'refused', respondedAt: new Date() },
+    });
+
+    this.events.emit('contact.resolved', {
+      contactId,
+      toTableId: contact.tableAId,
+      status: updated.status,
+    });
+
+    if (accept) {
+      const messages = await this.prisma.message.findMany({ where: { contactId } });
+      for (const message of messages) {
+        const payload = {
+          id: message.id,
+          kind: message.kind,
+          predefinedCode: message.predefinedCode,
+          content: message.content,
+          senderSessionId: message.senderSessionId,
+          createdAt: message.createdAt,
+        };
+        this.events.emit('message.new', { contactId, toTableId: contact.tableAId, message: payload });
+        this.events.emit('message.new', { contactId, toTableId: contact.tableBId, message: payload });
+      }
+    }
+
+    return updated;
   }
 }

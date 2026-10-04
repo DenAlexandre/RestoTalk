@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TablesService } from '../tables/tables.service';
 import { MessagingService } from './messaging.service';
@@ -225,5 +225,123 @@ describe('MessagingService.sendMessage', () => {
     expect(result.contactId).not.toBe(refused.id);
     const newContact = await prisma.tableContact.findUnique({ where: { id: result.contactId } });
     expect(newContact?.status).toBe('pending');
+  });
+});
+
+describe('MessagingService.respondToContact', () => {
+  let prisma: PrismaService;
+  let service: MessagingService;
+  let events: EventEmitter2;
+  let tableAId: number;
+  let tableBId: number;
+  let sessionA: { id: number; tableId: number };
+  let sessionB: { id: number; tableId: number };
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [EventEmitterModule.forRoot()],
+      providers: [PrismaService, TablesService, MessagingService],
+    }).compile();
+    prisma = moduleRef.get(PrismaService);
+    service = moduleRef.get(MessagingService);
+    events = moduleRef.get(EventEmitter2);
+    await prisma.onModuleInit();
+
+    const tableA = await prisma.table.create({
+      data: { number: 9631, qrTokenSecret: 'secret-9631', status: 'occupied' },
+    });
+    const tableB = await prisma.table.create({
+      data: { number: 9632, qrTokenSecret: 'secret-9632', status: 'occupied' },
+    });
+    tableAId = tableA.id;
+    tableBId = tableB.id;
+
+    const sA = await prisma.clientSession.create({
+      data: { tableId: tableAId, pseudo: 'Alice', status: 'active' },
+    });
+    const sB = await prisma.clientSession.create({
+      data: { tableId: tableBId, pseudo: 'Bob', status: 'active' },
+    });
+    sessionA = { id: sA.id, tableId: tableAId };
+    sessionB = { id: sB.id, tableId: tableBId };
+  });
+
+  afterEach(async () => {
+    await prisma.message.deleteMany({});
+    await prisma.tableContact.deleteMany({
+      where: { OR: [{ tableAId }, { tableBId }] },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.clientSession.deleteMany({ where: { tableId: { in: [tableAId, tableBId] } } });
+    await prisma.table.deleteMany({ where: { id: { in: [tableAId, tableBId] } } });
+    await prisma.onModuleDestroy();
+  });
+
+  it('accepts a pending contact and delivers its queued message', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+    const emitSpy = jest.spyOn(events, 'emit');
+
+    const resolved = await service.respondToContact(sessionB as any, contactId, true);
+
+    expect(resolved.status).toBe('accepted');
+    expect(resolved.respondedAt).not.toBeNull();
+    expect(emitSpy).toHaveBeenCalledWith(
+      'contact.resolved',
+      expect.objectContaining({ contactId, toTableId: tableAId, status: 'accepted' }),
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      'message.new',
+      expect.objectContaining({ contactId, toTableId: tableBId }),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it('refuses a pending contact without delivering its message', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+
+    const resolved = await service.respondToContact(sessionB as any, contactId, false);
+
+    expect(resolved.status).toBe('refused');
+  });
+
+  it('rejects a response from a session not belonging to the destination table', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+
+    await expect(
+      service.respondToContact(sessionA as any, contactId, true),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects responding to an already-resolved contact', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+    await service.respondToContact(sessionB as any, contactId, true);
+
+    await expect(
+      service.respondToContact(sessionB as any, contactId, true),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects responding to an unknown contact', async () => {
+    await expect(
+      service.respondToContact(sessionB as any, 999999, true),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
