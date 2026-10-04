@@ -26,6 +26,8 @@ model Table {
   status        TableStatus     @default(free)
   createdAt     DateTime        @default(now()) @map("created_at")
   sessions      ClientSession[]
+  contactsAsA   TableContact[]  @relation("ContactTableA")
+  contactsAsB   TableContact[]  @relation("ContactTableB")
 
   @@map("tables")
 }
@@ -40,6 +42,49 @@ model ClientSession {
   lastSeenAt DateTime             @default(now()) @map("last_seen_at")
   leftAt     DateTime?            @map("left_at")
   status     ClientSessionStatus  @default(active)
+  requestedContacts TableContact[]
+  sentMessages      Message[]
 
   @@map("client_sessions")
+}
+
+enum TableContactStatus {
+  pending
+  accepted
+  refused
+}
+
+enum MessageKind {
+  predefined
+  freetext
+}
+
+model TableContact {
+  id                   Int                 @id @default(autoincrement())
+  tableAId             Int                 @map("table_a_id")
+  tableA               Table               @relation("ContactTableA", fields: [tableAId], references: [id])
+  tableBId             Int                 @map("table_b_id")
+  tableB               Table               @relation("ContactTableB", fields: [tableBId], references: [id])
+  status               TableContactStatus  @default(pending)
+  requestedBySessionId Int                 @map("requested_by_session_id")
+  requestedBySession   ClientSession       @relation(fields: [requestedBySessionId], references: [id])
+  createdAt            DateTime            @default(now()) @map("created_at")
+  respondedAt          DateTime?           @map("responded_at")
+  messages             Message[]
+
+  @@map("table_contacts")
+}
+
+model Message {
+  id              Int           @id @default(autoincrement())
+  contactId       Int           @map("contact_id")
+  contact         TableContact  @relation(fields: [contactId], references: [id])
+  senderSessionId Int           @map("sender_session_id")
+  senderSession   ClientSession @relation(fields: [senderSessionId], references: [id])
+  kind            MessageKind
+  predefinedCode  String?       @map("predefined_code")
+  content         String
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@map("messages")
 }
