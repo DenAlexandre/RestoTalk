@@ -1,0 +1,45 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TableStatus {
+  free
+  occupied
+}
+
+enum ClientSessionStatus {
+  active
+  expired
+  left
+  kicked_by_staff
+}
+
+model Table {
+  id            Int             @id @default(autoincrement())
+  number        Int             @unique
+  qrTokenSecret String          @unique @map("qr_token_secret")
+  status        TableStatus     @default(free)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  sessions      ClientSession[]
+
+  @@map("tables")
+}
+
+model ClientSession {
+  id         Int                  @id @default(autoincrement())
+  tableId    Int                  @map("table_id")
+  table      Table                @relation(fields: [tableId], references: [id])
+  pseudo     String
+  pushToken  String?              @map("push_token")
+  joinedAt   DateTime             @default(now()) @map("joined_at")
+  lastSeenAt DateTime             @default(now()) @map("last_seen_at")
+  leftAt     DateTime?            @map("left_at")
+  status     ClientSessionStatus  @default(active)
+
+  @@map("client_sessions")
+}
