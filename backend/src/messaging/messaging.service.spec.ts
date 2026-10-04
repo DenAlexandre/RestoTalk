@@ -345,3 +345,106 @@ describe('MessagingService.respondToContact', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe('MessagingService.getMessages', () => {
+  let prisma: PrismaService;
+  let service: MessagingService;
+  let tableAId: number;
+  let tableBId: number;
+  let tableCId: number;
+  let sessionA: { id: number; tableId: number };
+  let sessionB: { id: number; tableId: number };
+  let sessionC: { id: number; tableId: number };
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [EventEmitterModule.forRoot()],
+      providers: [PrismaService, TablesService, MessagingService],
+    }).compile();
+    prisma = moduleRef.get(PrismaService);
+    service = moduleRef.get(MessagingService);
+    await prisma.onModuleInit();
+
+    const tableA = await prisma.table.create({
+      data: { number: 9641, qrTokenSecret: 'secret-9641', status: 'occupied' },
+    });
+    const tableB = await prisma.table.create({
+      data: { number: 9642, qrTokenSecret: 'secret-9642', status: 'occupied' },
+    });
+    const tableC = await prisma.table.create({
+      data: { number: 9643, qrTokenSecret: 'secret-9643', status: 'occupied' },
+    });
+    tableAId = tableA.id;
+    tableBId = tableB.id;
+    tableCId = tableC.id;
+
+    const sA = await prisma.clientSession.create({
+      data: { tableId: tableAId, pseudo: 'Alice', status: 'active' },
+    });
+    const sB = await prisma.clientSession.create({
+      data: { tableId: tableBId, pseudo: 'Bob', status: 'active' },
+    });
+    const sC = await prisma.clientSession.create({
+      data: { tableId: tableCId, pseudo: 'Carol', status: 'active' },
+    });
+    sessionA = { id: sA.id, tableId: tableAId };
+    sessionB = { id: sB.id, tableId: tableBId };
+    sessionC = { id: sC.id, tableId: tableCId };
+  });
+
+  afterEach(async () => {
+    await prisma.message.deleteMany({});
+    await prisma.tableContact.deleteMany({
+      where: { OR: [{ tableAId }, { tableBId }] },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.clientSession.deleteMany({
+      where: { tableId: { in: [tableAId, tableBId, tableCId] } },
+    });
+    await prisma.table.deleteMany({ where: { id: { in: [tableAId, tableBId, tableCId] } } });
+    await prisma.onModuleDestroy();
+  });
+
+  it('returns messages for an accepted contact to either participant', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+    await service.respondToContact(sessionB as any, contactId, true);
+
+    const asSender = await service.getMessages(sessionA as any, contactId);
+    const asRecipient = await service.getMessages(sessionB as any, contactId);
+
+    expect(asSender).toHaveLength(1);
+    expect(asRecipient).toHaveLength(1);
+    expect(asSender[0].content).toBe('Coucou');
+  });
+
+  it('rejects fetching messages for a contact still pending', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+
+    await expect(service.getMessages(sessionB as any, contactId)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('rejects a session from an unrelated table', async () => {
+    const { contactId } = await service.sendMessage(sessionA as any, {
+      toTableId: tableBId,
+      kind: 'freetext',
+      content: 'Coucou',
+    });
+    await service.respondToContact(sessionB as any, contactId, true);
+
+    await expect(service.getMessages(sessionC as any, contactId)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});

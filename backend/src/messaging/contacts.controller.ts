@@ -1,4 +1,4 @@
-import { Body, Controller, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../sessions/session-auth.guard';
 import { MessagingService } from './messaging.service';
 import { RespondContactDto } from './dto/respond-contact.dto';
@@ -16,5 +16,10 @@ export class ContactsController {
   ) {
     const updated = await this.messagingService.respondToContact(req.session, contactId, dto.accept);
     return { status: updated.status };
+  }
+
+  @Get(':contactId/messages')
+  async messages(@Req() req: any, @Param('contactId', ParseIntPipe) contactId: number) {
+    return this.messagingService.getMessages(req.session, contactId);
   }
 }

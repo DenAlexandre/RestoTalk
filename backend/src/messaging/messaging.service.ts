@@ -153,4 +153,25 @@ export class MessagingService {
 
     return updated;
   }
+
+  async getMessages(session: ClientSession, contactId: number): Promise<Message[]> {
+    const contact = await this.prisma.tableContact.findUnique({ where: { id: contactId } });
+
+    if (!contact) {
+      throw new NotFoundException('Unknown contact');
+    }
+
+    if (contact.tableAId !== session.tableId && contact.tableBId !== session.tableId) {
+      throw new ForbiddenException('Not a participant of this contact');
+    }
+
+    if (contact.status !== 'accepted') {
+      throw new BadRequestException('Contact is not accepted');
+    }
+
+    return this.prisma.message.findMany({
+      where: { contactId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
 }
