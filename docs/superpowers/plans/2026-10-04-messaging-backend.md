@@ -1089,7 +1089,7 @@ Add to `backend/src/messaging/messaging.service.ts` (inside the class, after `se
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && npx jest messaging.service.spec.ts`
-Expected: PASS (13 tests total across both describe blocks)
+Expected: PASS (13 tests total across all three describe blocks in the file: "Messaging Prisma models", "MessagingService.sendMessage", "MessagingService.respondToContact")
 
 - [ ] **Step 5: Add the `contact:resolved` gateway listener**
 
@@ -1324,7 +1324,7 @@ Add to `backend/src/messaging/messaging.service.ts` (inside the class):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && npx jest messaging.service.spec.ts`
-Expected: PASS (16 tests total across all three describe blocks)
+Expected: PASS (16 tests total across all four describe blocks in the file)
 
 - [ ] **Step 5: Wire the controller route**
 
