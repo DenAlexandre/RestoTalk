@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
 import { SessionAuthGuard } from './session-auth.guard';
+import { SessionExpirationService } from './session-expiration.service';
 import { TablesModule } from '../tables/tables.module';
 
 @Module({
@@ -14,7 +15,7 @@ import { TablesModule } from '../tables/tables.module';
     }),
   ],
   controllers: [SessionsController],
-  providers: [SessionsService, SessionAuthGuard],
+  providers: [SessionsService, SessionAuthGuard, SessionExpirationService],
   exports: [SessionsService],
 })
 export class SessionsModule {}
