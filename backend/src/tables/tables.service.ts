@@ -43,4 +43,23 @@ export class TablesService {
       data: { status: activeCount > 0 ? 'occupied' : 'free' },
     });
   }
+
+  async listOccupied(excludeTableId?: number) {
+    const tables = await this.prisma.table.findMany({
+      where: {
+        status: 'occupied',
+        ...(excludeTableId ? { id: { not: excludeTableId } } : {}),
+      },
+      include: {
+        sessions: { where: { status: 'active' } },
+      },
+      orderBy: { number: 'asc' },
+    });
+
+    return tables.map((t) => ({
+      tableId: t.id,
+      number: t.number,
+      activeSessionCount: t.sessions.length,
+    }));
+  }
 }
