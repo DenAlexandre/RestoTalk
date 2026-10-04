@@ -1,0 +1,4 @@
+restaurant:
+  name: "Le Bistrot"
+  tableCount: 20
+  sessionInactivityTimeoutHours: 4
